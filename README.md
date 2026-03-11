@@ -1,4 +1,4 @@
-# stm32-usbcdc-flash-driver
+# STM32 USB CDC & Flash Driver
 
 ##  개요
 이 프로젝트는 STM32 환경에서 다음 두 가지 핵심 기능을 구현한 프로젝트입니다.
