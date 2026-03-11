@@ -144,9 +144,6 @@ flowchart LR
 ```
 ### CDC 수신 흐름
 
-
-실제 표시:
-
 ```mermaid
 flowchart TD
     A[USB Host sends data] --> B[CDC_Receive_FS]
@@ -158,9 +155,6 @@ flowchart TD
 ```
 
 ### Flash 처리 흐름
-
-
-실제 표시:
 
 ```mermaid
 flowchart TD
