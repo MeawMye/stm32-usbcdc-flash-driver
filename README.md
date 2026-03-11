@@ -39,7 +39,7 @@ By combining CDC and Flash, this project forms a basic embedded workflow:
 
 ##  개발환경
 
-- MCU: STM32
+- MCU: STM32f429zi
 - Framework: STM32Cube HAL
 - USB Class: CDC (Virtual COM Port)
 - Language: C
