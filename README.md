@@ -54,9 +54,9 @@ APP/
 └── src/
     ├── ap/        application layer
     ├── bsp/       board support package
-    ├── common/    shared utilities
-    ├── hw/        hardware drivers
-    ├── lib/       STM32CubeMX generated code
+    ├── common/    shared utilities -> core 디렉터리 내 qbuffer 구현
+    ├── hw/        hardware drivers -> cdc.c 와 flash.c 파일 내 구현
+    ├── lib/       STM32CubeMX generated code -> USB_DEVICE 디렉터리 내 usbc_cdc_if.c 내 구현
     ├── main.c
     └── main.h
 ```
