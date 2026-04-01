@@ -14,5 +14,8 @@
 void apInit(void);
 void apMain(void);
 
+// Test Code
+void FlashCommandTest(uint8_t uart_ch);
+
 
 #endif /* SRC_AP_AP_H_ */

@@ -11,7 +11,7 @@
 
 typedef struct
 {
-  GPIO_TypeDef *port;
+  GPIO_InitTypeDef *port;
   uint16_t      pin;
   GPIO_PinState on_state;
   GPIO_PinState off_state;
