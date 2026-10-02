@@ -11,27 +11,99 @@
 
 // uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 
+static GPIO_PinState button_raw_state;
+static GPIO_PinState button_stable_state;
+static uint32_t button_change_time;
+
+static void apLedTask(uint32_t *pre_time)
+{
+  uint32_t now = millis();
+
+  if (now - *pre_time >= 500)
+  {
+    *pre_time = now;
+    ledToggle(_DEF_LED1);
+  }
+}
+
+static void apButtonPressed(void)
+{
+  uint32_t cause = resetGetCause();
+
+  logPrintf("Reset count: %lu\n", (unsigned long)resetGetCount());
+  if (cause == 0)
+  {
+    logPrintf("No reset cause flags set\n");
+  }
+  if (cause & RCC_CSR_PINRSTF)  logPrintf("Reset cause: NRST pin\n");
+  if (cause & RCC_CSR_PORRSTF)  logPrintf("Reset cause: power-on/power-down\n");
+  if (cause & RCC_CSR_BORRSTF)  logPrintf("Reset cause: brown-out\n");
+  if (cause & RCC_CSR_SFTRSTF)  logPrintf("Reset cause: software\n");
+  if (cause & RCC_CSR_IWDGRSTF) logPrintf("Reset cause: independent watchdog\n");
+  if (cause & RCC_CSR_WWDGRSTF) logPrintf("Reset cause: window watchdog\n");
+  if (cause & RCC_CSR_LPWRRSTF) logPrintf("Reset cause: low-power\n");
+
+  resetClearCause();
+}
+
+static void apButtonInit(void)
+{
+  GPIO_InitTypeDef gpio_init = {0};
+
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  gpio_init.Pin = GPIO_PIN_13;
+  gpio_init.Mode = GPIO_MODE_INPUT;
+  gpio_init.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(GPIOC, &gpio_init);
+
+  button_stable_state = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+  button_raw_state = button_stable_state;
+  button_change_time = millis();
+}
+
+static void apButtonTask(void)
+{
+  uint32_t now = millis();
+  GPIO_PinState raw_state = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+
+  if (raw_state != button_raw_state)
+  {
+    button_raw_state = raw_state;
+    button_change_time = now;
+  }
+
+  if (button_raw_state != button_stable_state && now - button_change_time >= 30)
+  {
+    button_stable_state = button_raw_state;
+    if (button_stable_state == GPIO_PIN_SET)
+    {
+      apButtonPressed();
+    }
+  }
+}
+
+static void apUsbCommandTask(void)
+{
+  FlashCommandTest(_DEF_UART1);
+}
+
 void apInit(void)
 {
-  uartOpen(_DEF_UART1, 57600); // 1번채널은 USB
-  uartOpen(_DEF_UART2, 57600); // 2번채널은 실제 물리적인 UART
+  uartOpen(_DEF_UART1, 57600); // USB CDC
+  uartOpen(_DEF_UART2, 57600); // USART1
+  apButtonInit();
 }
 
 // main.c를 최소화하고 ap 상위작업은 모두 여기서 할수 있도록
 void apMain(void)
 {
-    uint32_t pre_time;
+    uint32_t pre_time = millis();
 
-    pre_time = millis();
     while(1)
     {
-      if (millis()-pre_time >= 500)
-      {
-        pre_time = millis();
-        ledToggle(_DEF_LED1);
-      }
-
-      FlashCommandTest(_DEF_UART1);
+      apLedTask(&pre_time);
+      apButtonTask();
+      apUsbCommandTask();
     }
 }
 

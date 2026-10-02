@@ -35,3 +35,19 @@ uint32_t resetGetCount(void)
 {
   return reset_count;
 }
+
+uint32_t resetGetCause(void)
+{
+  return RCC->CSR & (RCC_CSR_LPWRRSTF |
+                     RCC_CSR_WWDGRSTF |
+                     RCC_CSR_IWDGRSTF |
+                     RCC_CSR_SFTRSTF |
+                     RCC_CSR_PORRSTF |
+                     RCC_CSR_PINRSTF |
+                     RCC_CSR_BORRSTF);
+}
+
+void resetClearCause(void)
+{
+  __HAL_RCC_CLEAR_RESET_FLAGS();
+}

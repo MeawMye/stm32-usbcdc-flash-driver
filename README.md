@@ -60,6 +60,8 @@ flowchart LR
 | `2` | 대상 Flash 섹터 삭제 |
 | `3` | `0x00`부터 `0x1F`까지 32바이트 기록 |
 
+보드의 B1 사용자 버튼(PC13)을 누르면 마지막 리셋 원인과 Reset 카운터를 USB 시리얼로 출력한 뒤 리셋 원인 플래그를 지웁니다.
+
 권장 시험 순서:
 
 ```text
@@ -74,9 +76,17 @@ flowchart LR
 
 ```text
 main()
- ├─ hwInit()   : HAL, USB, UART, LED 등 초기화
- ├─ apInit()   : USB CDC 및 USART1 채널 개방
- └─ apMain()   : LED 토글 및 Flash 명령 처리
+ ├─ hwInit()   : 보드와 RTC, Reset, LED, USB, UART 드라이버 초기화
+ ├─ apInit()   : USB CDC(_DEF_UART1), USART1(_DEF_UART2) 채널 개방
+ └─ apMain()
+     └─ while (1)
+         ├─ apLedTask()         : LED 드라이버로 500ms 주기 토글
+         ├─ apButtonTask()      : B1 버튼 입력 및 리셋 원인 출력/플래그 삭제
+         └─ apUsbCommandTask()  : USB CDC 명령 처리
+             └─ FlashCommandTest(_DEF_UART1)
+                 ├─ '1': Flash 읽기
+                 ├─ '2': Flash 섹터 삭제
+                 └─ '3': Flash 쓰기
 ```
 
 ## 프로젝트 구조

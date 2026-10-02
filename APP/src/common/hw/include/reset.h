@@ -18,6 +18,8 @@
 bool resetInit(void);
 
 uint32_t resetGetCount(void);
+uint32_t resetGetCause(void);
+void resetClearCause(void);
 
 
 #endif
