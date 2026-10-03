@@ -60,7 +60,9 @@ flowchart LR
 | `2` | 대상 Flash 섹터 삭제 |
 | `3` | `0x00`부터 `0x1F`까지 32바이트 기록 |
 
-보드의 B1 사용자 버튼(PC13)을 누르면 마지막 리셋 원인과 Reset 카운터를 USB 시리얼로 출력한 뒤 리셋 원인 플래그를 지웁니다.
+보드의 B1 사용자 버튼(PC13)을 누르면 마지막 리셋 원인과 Reset 카운터를 USB 시리얼로 출력하고, Flash 명령 모드와 UART 브리지 모드를 전환합니다. 리셋 원인 플래그도 이때 지웁니다.
+
+UART 브리지를 시험하려면 USB CDC 터미널과 별도의 USB-UART 어댑터 터미널을 엽니다. 어댑터 TX를 보드 PA10(USART1_RX)에, 어댑터 RX를 PA9(USART1_TX)에, GND를 보드 GND에 연결하고 양쪽 UART 설정을 57600 baud로 맞춥니다. B1을 눌러 브리지 모드로 전환하면 USB CDC와 USART1 사이에 양방향으로 데이터가 전달됩니다. USART1 수신은 DMA를 사용하고, 송신은 현재 일반 UART 송신입니다. 다시 B1을 누르면 Flash 명령 모드로 돌아갑니다.
 
 권장 시험 순서:
 
@@ -81,12 +83,11 @@ main()
  └─ apMain()
      └─ while (1)
          ├─ apLedTask()         : LED 드라이버로 500ms 주기 토글
-         ├─ apButtonTask()      : B1 버튼 입력 및 리셋 원인 출력/플래그 삭제
-         └─ apUsbCommandTask()  : USB CDC 명령 처리
-             └─ FlashCommandTest(_DEF_UART1)
-                 ├─ '1': Flash 읽기
-                 ├─ '2': Flash 섹터 삭제
-                 └─ '3': Flash 쓰기
+         ├─ apButtonTask()      : B1 입력, 리셋 정보 출력, 동작 모드 전환
+         └─ 모드별 작업
+             ├─ Flash 명령 모드: USB CDC 명령 1~3 처리
+             └─ UART 브리지 모드: USB CDC ↔ USART1 양방향 전달
+                 └─ USART1 수신은 DMA 사용
 ```
 
 ## 프로젝트 구조

@@ -14,6 +14,7 @@
 static GPIO_PinState button_raw_state;
 static GPIO_PinState button_stable_state;
 static uint32_t button_change_time;
+static bool uart_bridge_enabled;
 
 static void apLedTask(uint32_t *pre_time)
 {
@@ -42,6 +43,9 @@ static void apButtonPressed(void)
   if (cause & RCC_CSR_IWDGRSTF) logPrintf("Reset cause: independent watchdog\n");
   if (cause & RCC_CSR_WWDGRSTF) logPrintf("Reset cause: window watchdog\n");
   if (cause & RCC_CSR_LPWRRSTF) logPrintf("Reset cause: low-power\n");
+
+  uart_bridge_enabled = !uart_bridge_enabled;
+  logPrintf("UART bridge: %s\n", uart_bridge_enabled ? "ON" : "OFF");
 
   resetClearCause();
 }
@@ -87,6 +91,33 @@ static void apUsbCommandTask(void)
   FlashCommandTest(_DEF_UART1);
 }
 
+static void apUartBridgeTask(void)
+{
+  uint8_t data[32];
+  uint32_t length = 0;
+
+  while (length < sizeof(data) && uartAvailable(_DEF_UART1) > 0)
+  {
+    data[length++] = uartRead(_DEF_UART1);
+  }
+
+  if (length > 0)
+  {
+    uartWrite(_DEF_UART2, data, length);
+  }
+
+  length = 0;
+  while (length < sizeof(data) && uartAvailable(_DEF_UART2) > 0)
+  {
+    data[length++] = uartRead(_DEF_UART2);
+  }
+
+  if (length > 0)
+  {
+    uartWrite(_DEF_UART1, data, length);
+  }
+}
+
 void apInit(void)
 {
   uartOpen(_DEF_UART1, 57600); // USB CDC
@@ -103,7 +134,14 @@ void apMain(void)
     {
       apLedTask(&pre_time);
       apButtonTask();
-      apUsbCommandTask();
+      if (uart_bridge_enabled)
+      {
+        apUartBridgeTask();
+      }
+      else
+      {
+        apUsbCommandTask();
+      }
     }
 }
 
