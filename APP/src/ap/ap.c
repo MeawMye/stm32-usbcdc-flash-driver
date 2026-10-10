@@ -11,6 +11,9 @@
 
 // uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
 
+#define FLASH_TEST_ADDR   HW_FLASH_TEST_ADDR
+#define FLASH_TEST_LEN    HW_FLASH_TEST_LEN
+
 static GPIO_PinState button_raw_state;
 static GPIO_PinState button_stable_state;
 static uint32_t button_change_time;
@@ -29,25 +32,9 @@ static void apLedTask(uint32_t *pre_time)
 
 static void apButtonPressed(void)
 {
-  uint32_t cause = resetGetCause();
-
-  logPrintf("Reset count: %lu\n", (unsigned long)resetGetCount());
-  if (cause == 0)
-  {
-    logPrintf("No reset cause flags set\n");
-  }
-  if (cause & RCC_CSR_PINRSTF)  logPrintf("Reset cause: NRST pin\n");
-  if (cause & RCC_CSR_PORRSTF)  logPrintf("Reset cause: power-on/power-down\n");
-  if (cause & RCC_CSR_BORRSTF)  logPrintf("Reset cause: brown-out\n");
-  if (cause & RCC_CSR_SFTRSTF)  logPrintf("Reset cause: software\n");
-  if (cause & RCC_CSR_IWDGRSTF) logPrintf("Reset cause: independent watchdog\n");
-  if (cause & RCC_CSR_WWDGRSTF) logPrintf("Reset cause: window watchdog\n");
-  if (cause & RCC_CSR_LPWRRSTF) logPrintf("Reset cause: low-power\n");
-
   uart_bridge_enabled = !uart_bridge_enabled;
+  logPrintf("USER button (PC13) pressed\n");
   logPrintf("UART bridge: %s\n", uart_bridge_enabled ? "ON" : "OFF");
-
-  resetClearCause();
 }
 
 static void apButtonInit(void)
@@ -93,35 +80,42 @@ static void apUsbCommandTask(void)
 
 static void apUartBridgeTask(void)
 {
-  uint8_t data[32];
+  static uint8_t to_uart[32];
+  static uint8_t to_cdc[32];  // USB 비동기 전송 중 덮어쓰지 않도록 static
   uint32_t length = 0;
 
-  while (length < sizeof(data) && uartAvailable(_DEF_UART1) > 0)
+  while (length < sizeof(to_uart) && uartAvailable(_DEF_UART1) > 0)
   {
-    data[length++] = uartRead(_DEF_UART1);
+    to_uart[length++] = uartRead(_DEF_UART1);
   }
 
   if (length > 0)
   {
-    uartWrite(_DEF_UART2, data, length);
+    uartWrite(_DEF_UART2, to_uart, length);
+  }
+
+  // CDC 송신이 끝난 경우에만 읽어서, 전송 실패로 데이터가 유실되지 않게 함
+  if (uartTxBusy(_DEF_UART1))
+  {
+    return;
   }
 
   length = 0;
-  while (length < sizeof(data) && uartAvailable(_DEF_UART2) > 0)
+  while (length < sizeof(to_cdc) && uartAvailable(_DEF_UART2) > 0)
   {
-    data[length++] = uartRead(_DEF_UART2);
+    to_cdc[length++] = uartRead(_DEF_UART2);
   }
 
   if (length > 0)
   {
-    uartWrite(_DEF_UART1, data, length);
+    uartWrite(_DEF_UART1, to_cdc, length);
   }
 }
 
 void apInit(void)
 {
-  uartOpen(_DEF_UART1, 57600); // USB CDC
-  uartOpen(_DEF_UART2, 57600); // USART1
+  uartOpen(_DEF_UART1, 115200); // USB CDC
+  uartOpen(_DEF_UART2, 115200); // USART6 (PG14 TX, PG9 RX)
   apButtonInit();
 }
 
@@ -157,7 +151,8 @@ void FlashCommandTest(uint8_t uart_ch)
           {
             uint8_t buf[32];
 
-            logPrintf("Read...\n");
+            logPrintf("You push the button 1. Read test.\n");
+            logPrintf("Read... addr: 0x%lX, len: %d\n", (unsigned long)FLASH_TEST_ADDR, FLASH_TEST_LEN);
 
              __HAL_FLASH_DATA_CACHE_DISABLE();
              __HAL_FLASH_INSTRUCTION_CACHE_DISABLE();
@@ -166,11 +161,11 @@ void FlashCommandTest(uint8_t uart_ch)
              __HAL_FLASH_DATA_CACHE_ENABLE();
              __HAL_FLASH_INSTRUCTION_CACHE_ENABLE();
 
-            flashRead(0x08010000, buf, 32);
+            flashRead(FLASH_TEST_ADDR, buf, FLASH_TEST_LEN);
 
-            for (int i=0; i<32; i++)
+            for (int i=0; i<FLASH_TEST_LEN; i++)
             {
-              logPrintf("0x%X : 0x%X\n", 0x08010000 + i, buf[i]);
+              logPrintf("0x%X : 0x%X\n", FLASH_TEST_ADDR + i, buf[i]);
             }
           }
 
@@ -178,9 +173,13 @@ void FlashCommandTest(uint8_t uart_ch)
 
           case '2':
           {
-            logPrintf("Erase...\n");
-            if (flashErase(0x08010000, 32) == true)
+            logPrintf("Erase... addr: 0x%lX, len: %d\n", (unsigned long)FLASH_TEST_ADDR, FLASH_TEST_LEN);
+            if (flashErase(FLASH_TEST_ADDR, FLASH_TEST_LEN) == true)
+            {
+              logPrintf("You push the button 2. Erase test.\n");
+              logPrintf("When you write, make sure to erase first.\n");
               logPrintf("Erase OK\n");
+            }
             else
               logPrintf("Erase Fail\n");
           }
@@ -189,16 +188,17 @@ void FlashCommandTest(uint8_t uart_ch)
           // Write전에 Erase를 우선 실행해야힘.
           case '3':
           {
-            uint8_t buf[32];
+            uint8_t buf[FLASH_TEST_LEN];
 
-            for (int i=0; i<32; i++)
+            for (int i=0; i<FLASH_TEST_LEN; i++)
             {
              buf[i] = i;
            }
+            logPrintf("You push the button 3. Write test.\n");
+            logPrintf("When you write, make sure to erase first.\n");
+            logPrintf("Write... addr: 0x%lX, len: %d\n", (unsigned long)FLASH_TEST_ADDR, FLASH_TEST_LEN);
 
-            logPrintf("Write...\n");
-
-            if (flashWrite(0x08010000, buf, 32) == true)
+            if (flashWrite(FLASH_TEST_ADDR, buf, FLASH_TEST_LEN) == true)
             {
               logPrintf("Write OK\n");
             }

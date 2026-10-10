@@ -110,6 +110,7 @@ uint32_t cdcGetBaud(void)
 }
 
 
+
  uint8_t USBD_CDC_SOF(struct _USBD_HandleTypeDef *pdev)
  {
    uint32_t buf_len;
@@ -427,6 +428,17 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
   result = USBD_CDC_TransmitPacket(&hUsbDeviceFS);
   /* USER CODE END 7 */
   return result;
+}
+
+bool cdcTxBusy(void)
+{
+  USBD_CDC_HandleTypeDef *hcdc = (USBD_CDC_HandleTypeDef*)hUsbDeviceFS.pClassData;
+
+  if (hcdc == NULL)
+  {
+    return true;
+  }
+  return hcdc->TxState != 0;
 }
 
 /**

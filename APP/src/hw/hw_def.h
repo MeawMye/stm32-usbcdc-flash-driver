@@ -19,6 +19,9 @@
 #define _USE_HW_RESET
 #define _USE_HW_CDC
 #define _USE_HW_FLASH
+// 2MB 기준 Sector 11(128KB, 뱅크1 마지막). 펌웨어(0x08005000~)보다 한참 뒤라 겹치지 않는 테스트 전용 영역
+#define       HW_FLASH_TEST_ADDR  0x080E0000
+#define       HW_FLASH_TEST_LEN   32
 
 #define _USE_HW_LED
 #define       HW_LED_MAX_CH       1

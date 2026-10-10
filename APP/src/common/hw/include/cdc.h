@@ -20,6 +20,7 @@ uint8_t  cdcRead(void);
 void     cdcDataIn(uint8_t rx_data);
 uint32_t cdcWrite(uint8_t *p_data, uint32_t length);
 uint32_t cdcGetBaud(void);
+bool     cdcTxBusy(void);
 
 
 #endif
