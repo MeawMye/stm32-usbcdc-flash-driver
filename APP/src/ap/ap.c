@@ -73,11 +73,6 @@ static void apButtonTask(void)
   }
 }
 
-static void apUsbCommandTask(void)
-{
-  FlashCommandTest(_DEF_UART1);
-}
-
 static void apUartBridgeTask(void)
 {
   static uint8_t to_uart[32];
@@ -117,26 +112,6 @@ void apInit(void)
   uartOpen(_DEF_UART1, 115200); // USB CDC
   uartOpen(_DEF_UART2, 115200); // USART6 (PG14 TX, PG9 RX)
   apButtonInit();
-}
-
-// main.c를 최소화하고 ap 상위작업은 모두 여기서 할수 있도록
-void apMain(void)
-{
-    uint32_t pre_time = millis();
-
-    while(1)
-    {
-      apLedTask(&pre_time);
-      apButtonTask();
-      if (uart_bridge_enabled)
-      {
-        apUartBridgeTask();
-      }
-      else
-      {
-        apUsbCommandTask();
-      }
-    }
 }
 
 void FlashCommandTest(uint8_t uart_ch)
@@ -211,4 +186,29 @@ void FlashCommandTest(uint8_t uart_ch)
           break;
         }
       }
+}
+
+static void apUsbCommandTask(void)
+{
+  FlashCommandTest(_DEF_UART1);
+}
+
+// main.c를 최소화하고 ap 상위작업은 모두 여기서 할수 있도록
+void apMain(void)
+{
+    uint32_t pre_time = millis();
+
+    while(1)
+    {
+      apLedTask(&pre_time);
+      apButtonTask();
+      if (uart_bridge_enabled)
+      {
+        apUartBridgeTask();
+      }
+      else
+      {
+        apUsbCommandTask();
+      }
+    }
 }
