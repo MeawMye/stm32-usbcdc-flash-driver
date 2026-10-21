@@ -77,7 +77,28 @@ static void apUartBridgeTask(void)
 {
   static uint8_t to_uart[32];
   static uint8_t to_cdc[32];  // USB 비동기 전송 중 덮어쓰지 않도록 static
+  static uint32_t cdc_tx_total;
+  static uint32_t cdc_last_tx_time;
+  static uint32_t dma_rx_total;
+  static uint32_t dma_last_rx_time;
   uint32_t length = 0;
+
+  if (cdc_tx_total > 0 && millis() - cdc_last_tx_time >= 100
+      && uartAvailable(_DEF_UART1) == 0)
+  {
+    uartPrintf(_DEF_UART2, "\n[CDC RX -> USART6 TX END] %lu bytes sent\n",
+               (unsigned long)cdc_tx_total);
+    cdc_tx_total = 0;
+  }
+
+  // 마지막 DMA 수신 후 100ms 동안 추가 데이터가 없으면 수신 완료로 판단
+  if (dma_rx_total > 0 && millis() - dma_last_rx_time >= 100
+      && uartAvailable(_DEF_UART2) == 0 && !uartTxBusy(_DEF_UART1))
+  {
+    logPrintf("\n[USART6 DMA RX -> CDC TX END] %lu bytes forwarded\n",
+              (unsigned long)dma_rx_total);
+    dma_rx_total = 0;
+  }
 
   while (length < sizeof(to_uart) && uartAvailable(_DEF_UART1) > 0)
   {
@@ -86,7 +107,11 @@ static void apUartBridgeTask(void)
 
   if (length > 0)
   {
-    uartWrite(_DEF_UART2, to_uart, length);
+    if (uartWrite(_DEF_UART2, to_uart, length) == length)
+    {
+      cdc_tx_total += length;
+      cdc_last_tx_time = millis();
+    }
   }
 
   // CDC 송신이 끝난 경우에만 읽어서, 전송 실패로 데이터가 유실되지 않게 함
@@ -104,6 +129,8 @@ static void apUartBridgeTask(void)
   if (length > 0)
   {
     uartWrite(_DEF_UART1, to_cdc, length);
+    dma_rx_total += length;
+    dma_last_rx_time = millis();
   }
 }
 
